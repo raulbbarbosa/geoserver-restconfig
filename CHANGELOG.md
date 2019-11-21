@@ -1,6 +1,14 @@
 # Change Log
 
-## [1.0.4](https://github.com/GeoNode/geoserver-restconfig/releases/tag/v1.4.1) (2019-09-18)
+## [1.0.5](https://github.com/GeoNode/geoserver-restconfig/releases/tag/1.0.5) (2019-11-21)
+
+### Changelog
+
+* [Py3 Compatibility]](https://github.com/GeoNode/geoserver-restconfig/commit/efbbeeca70b0a47cb55d745a137890dabee9f698)
+
+[Full Changelog](https://github.com/GeoNode/geoserver-restconfig/compare/1.0.4...1.0.5)
+
+## [1.0.4](https://github.com/GeoNode/geoserver-restconfig/releases/tag/1.0.4) (2019-09-18)
 
 ### Changelog
 
