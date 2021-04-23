@@ -10,12 +10,15 @@
 #########################################################################
 
 from six import string_types
+
+from geoserver.support import (ResourceInfo, bbox, build_url, write_bbox,
+                               write_bool, write_string, xml_property)
+
 try:
     from urllib.parse import urljoin
 except:
     from urlparse import urljoin
 
-from geoserver.support import ResourceInfo, bbox, write_bbox, write_string, xml_property, build_url
 
 try:
     from past.builtins import basestring
@@ -101,7 +104,9 @@ class LayerGroup(ResourceInfo):
             'workspace': write_string("workspace"),
             'mode': write_string("mode"),
             'abstractTxt': write_string("abstractTxt"),
-            'title': write_string("title")
+            'title': write_string("title"),
+            'enabled': write_bool("enabled"),
+            'advertised': write_bool("advertised"),
         }
 
     @property
@@ -120,6 +125,8 @@ class LayerGroup(ResourceInfo):
     mode = xml_property("mode")
     abstract = xml_property("abstractTxt")
     title = xml_property("title")
+    enabled = xml_property("enabled", lambda x: x.text == "true", default=True)
+    advertised = xml_property("advertised", lambda x: x.text == "true", default=True)
 
     def _layers_getter(self):
         if "layers" in self.dirty:
