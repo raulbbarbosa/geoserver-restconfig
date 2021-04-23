@@ -9,11 +9,12 @@
 #
 #########################################################################
 
-import os
 import logging
-from xml.etree.ElementTree import TreeBuilder, tostring
+import os
 from tempfile import mkstemp
+from xml.etree.ElementTree import TreeBuilder, tostring
 from zipfile import ZipFile
+
 from six import string_types
 
 try:
@@ -85,7 +86,6 @@ def xml_property(path, converter=lambda x: x.text, default=None):
                 return default
         except Exception as e:
             raise AttributeError(e)
-
 
     def setter(self, value):
         self.dirty[path] = value
@@ -232,7 +232,7 @@ class ResourceInfo(object):
         builder.start(self.resource_type, dict())
         self.serialize(builder)
         builder.end(self.resource_type)
-        msg = tostring(builder.close())
+        msg = tostring(builder.close(), encoding="unicode")
         return msg
 
 
@@ -384,7 +384,7 @@ class DimensionInfo(object):
     def resolution_millis(self):
         '''if set, get the value of resolution in milliseconds'''
         if self.resolution is None or not isinstance(self.resolution, string_types):
-                return self.resolution
+            return self.resolution
         val, mult = self.resolution.split(' ')
         return int(float(val) * self._multipier(mult) * 1000)
 
