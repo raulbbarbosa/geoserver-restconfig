@@ -9,31 +9,28 @@
 #
 #########################################################################
 
+import base64
 import logging
-from datetime import datetime, timedelta
-from geoserver.layer import Layer
-from geoserver.resource import FeatureType
-from geoserver.store import (
-    coveragestore_from_index,
-    datastore_from_index,
-    wmsstore_from_index,
-    UnsavedDataStore,
-    UnsavedCoverageStore,
-    UnsavedWmsStore
-)
-from geoserver.style import Style
-from geoserver.support import prepare_upload_bundle, build_url
-from geoserver.layergroup import LayerGroup, UnsavedLayerGroup
-from geoserver.workspace import workspace_from_index, Workspace
 import os
 import re
-import base64
+from datetime import datetime, timedelta
 from xml.etree.ElementTree import XML
 from xml.parsers.expat import ExpatError
+
 import requests
-from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from six import string_types
+
+from geoserver.layer import Layer
+from geoserver.layergroup import LayerGroup, UnsavedLayerGroup
+from geoserver.resource import FeatureType
+from geoserver.store import (UnsavedCoverageStore, UnsavedDataStore,
+                             UnsavedWmsStore, coveragestore_from_index,
+                             datastore_from_index, wmsstore_from_index)
+from geoserver.style import Style
+from geoserver.support import build_url, prepare_upload_bundle
+from geoserver.workspace import Workspace, workspace_from_index
 
 try:
     from past.builtins import basestring
@@ -158,7 +155,9 @@ class Catalog(object):
             valid_uname_pw = base64.b64encode(
                 ("%s:%s" % (self.username, self.password)).encode("utf-8")).decode("ascii")
             headers['Authorization'] = 'Basic {}'.format(valid_uname_pw)
-            resp = req_method(url, headers=headers, data=data)
+            resp = req_method(url, headers=headers, data=data, timeout=None)
+        if resp.status_code == 200 and 'support ID' in resp.text:
+            logger.debug("big ip: {} {}".format(resp.text, resp.content))
         return resp
 
     def get_version(self):
@@ -298,7 +297,7 @@ class Catalog(object):
         logger.debug("{} {}".format(obj.save_method, obj.href))
         resp = self.http_request(rest_url, method=obj.save_method.lower(), data=data, headers=headers)
 
-        if resp.status_code not in (200, 201):
+        if resp.status_code not in (200, 201) or 'support ID' in resp.text:
             raise FailedRequestError('Failed to save to Geoserver catalog: {}, {}'.format(resp.status_code, resp.text))
 
         self._cache.clear()
@@ -388,7 +387,7 @@ class Catalog(object):
         data = "<wmsLayer><name>{}</name><nativeName>{}</nativeName></wmsLayer>".format(name, nativeName)
         resp = self.http_request(url, method='post', data=data, headers=headers)
 
-        if resp.status_code not in (200, 201):
+        if resp.status_code not in (200, 201) or 'support ID' in resp.text:
             raise FailedRequestError('Failed to create WMS layer: {}, {}'.format(resp.status_code, resp.text))
 
         self._cache.clear()
@@ -641,7 +640,8 @@ class Catalog(object):
                 data.close()
 
             if resp.status_code != 201:
-                raise FailedRequestError('Failed to create coverage/layer {} for : {}, {}'.format(layer_name, name, resp.status_code, resp.text))
+                raise FailedRequestError('Failed to create coverage/layer {} for : {}, {}'.format(layer_name,
+                                                                                                  name, resp.status_code, resp.text))
 
         return self.get_stores(names=name, workspaces=[workspace])[0]
 
@@ -890,7 +890,7 @@ class Catalog(object):
             )
 
         resp = self.http_request(resource_url, method='post', data=feature_type.message(), headers=headers)
-        if resp.status_code not in (200, 201, 202):
+        if resp.status_code not in (200, 201, 202) or 'support ID' in resp.text:
             raise FailedRequestError('Failed to publish feature type {} : {}, {}'.format(name, resp.status_code, resp.text))
 
         self._cache.clear()
@@ -1111,7 +1111,7 @@ class Catalog(object):
         return all_styles
 
     def __build_style_list(self, styles_tree, workspace=None, recursive=False):
-        all_styles = []        
+        all_styles = []
         for s in styles_tree.findall("style"):
             try:
                 if recursive:
@@ -1160,11 +1160,10 @@ class Catalog(object):
             }
             create_url = style.create_href
             resp = self.http_request(create_url, method='post', data=xml, headers=headers)
-            if resp.status_code == 406:
+            if resp.status_code == 406 or 'support ID' in resp.text:
                 headers["Accept"] = "application/xml"
                 resp = self.http_request(create_url, method='post', data=xml, headers=headers)
-
-            if resp.status_code not in (200, 201, 202):
+            if resp.status_code not in (200, 201, 202) or 'support ID' in resp.text:
                 raise FailedRequestError('Failed to create style {} : {}, {}'.format(name, resp.status_code, resp.text))
 
         if style:
@@ -1178,13 +1177,13 @@ class Catalog(object):
                 body_href += "?raw=true"
 
             resp = self.http_request(body_href, method='put', data=data, headers=headers)
-            if resp.status_code not in (200, 201, 202):
+            if resp.status_code not in (200, 201, 202) or 'support ID' in resp.text:
                 body_href = os.path.splitext(style.body_href)[0] + '.xml'
                 if raw:
                     body_href += "?raw=true"
 
                 resp = self.http_request(body_href, method='put', data=data, headers=headers)
-                if resp.status_code not in (200, 201, 202):
+                if resp.status_code not in (200, 201, 202) or 'support ID' in resp.text:
                     raise FailedRequestError('Failed to update style {} : {}, {}'.format(name, resp.status_code, resp.text))
 
             self._cache.pop(style.href, None)
@@ -1205,7 +1204,7 @@ class Catalog(object):
         workspace_url = self.service_url + "/namespaces/"
 
         resp = self.http_request(workspace_url, method='post', data=xml, headers=headers)
-        if resp.status_code not in (200, 201, 202):
+        if resp.status_code not in (200, 201, 202) or 'support ID' in resp.text:
             raise FailedRequestError('Failed to create workspace {} : {}, {}'.format(name, resp.status_code, resp.text))
 
         self._cache.pop("{}/workspaces.xml".format(self.service_url), None)
@@ -1260,7 +1259,7 @@ class Catalog(object):
             data = "<workspace><name>{}</name></workspace>".format(name)
 
             resp = self.http_request(default_workspace_url, method='put', data=data, headers=headers)
-            if resp.status_code not in (200, 201, 202):
+            if resp.status_code not in (200, 201, 202) or 'support ID' in resp.text:
                 raise FailedRequestError('Failed to set default workspace {} : {}, {}'.format(name, resp.status_code, resp.text))
 
             self._cache.pop(default_workspace_url, None)
