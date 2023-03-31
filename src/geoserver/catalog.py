@@ -278,6 +278,37 @@ class Catalog(object):
         self._cache.clear()
         return resp
 
+    def change_resourcename(self, obj, name, content_type="application/xml"):
+        """
+        Pretty much like the save method, but forcing the xml to write the name attribute.
+        the update model is a little bit different.
+        featureType and coverage
+        can we do better? probably. does it work? yes.
+        """
+        href = urlparse(obj.href)
+        netloc = urlparse(self.service_url).netloc
+        rest_url = href._replace(netloc=netloc).geturl()
+        #data = obj.message()
+        if obj.resource_type == "featureType" or obj.resource_type == "coverage":
+            data = f"""<{obj.resource_type}><name>{name.strip()}</name></{obj.resource_type}>"""
+            print(data)
+        else:
+            raise Exception("no sé lo que hacer...      ")
+
+        headers = {
+            "Content-type": content_type,
+            "Accept": content_type
+        }
+
+        logger.debug("{} {}".format(obj.save_method, obj.href))
+        resp = self.http_request(rest_url, method='PUT', data=data, headers=headers)
+
+        if resp.status_code not in (200, 201) or 'support ID' in resp.text:
+            raise FailedRequestError('Failed to save to Geoserver catalog: {}, {}'.format(resp.status_code, resp.text))
+
+        self._cache.clear()
+        return resp
+
     def save(self, obj, content_type="application/xml"):
         """
         saves an object to the REST service

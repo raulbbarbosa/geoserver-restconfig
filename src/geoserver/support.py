@@ -232,7 +232,7 @@ class ResourceInfo(object):
         builder.start(self.resource_type, dict())
         self.serialize(builder)
         builder.end(self.resource_type)
-        msg = tostring(builder.close(), encoding="unicode")
+        msg = tostring(builder.close())
         return msg
 
 
